@@ -1,7 +1,7 @@
 from typing import Any, Callable, List, Optional
 
 import equinox as eqx
-import equinox.experimental as eqxex
+# import equinox.experimental as eqxex
 import equinox.nn as nn
 import jax
 import jax.nn as jnn

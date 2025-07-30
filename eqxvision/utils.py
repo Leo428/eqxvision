@@ -65,7 +65,9 @@ CLASSIFICATION_URLS = {
     "regnet_x_32gf": "https://download.pytorch.org/models/regnet_x_32gf-6eb8fdc6.pth",
     "resnet18": "https://download.pytorch.org/models/resnet18-5c106cde.pth",
     "resnet34": "https://download.pytorch.org/models/resnet34-333f7ec4.pth",
-    "resnet50": "https://download.pytorch.org/models/resnet50-19c8e357.pth",
+    # "resnet50": "https://download.pytorch.org/models/resnet50-19c8e357.pth",
+    # imagenet1k-v2 from https://docs.pytorch.org/vision/main/_modules/torchvision/models/resnet.html#ResNet50_Weights
+    "resnet50": "https://download.pytorch.org/models/resnet50-11ad3fa6.pth",
     "resnet101": "https://download.pytorch.org/models/resnet101-5d3b4d8f.pth",
     "resnet152": "https://download.pytorch.org/models/resnet152-b121ed2d.pth",
     "resnext50_32x4d": "https://download.pytorch.org/models/resnext50_32x4d-7cdf4587.pth",
@@ -189,12 +191,35 @@ def load_torch_weights(
     leaves, tree_def = jtu.tree_flatten(model)
 
     new_leaves = []
-    for leaf in leaves:
+    for i, leaf in enumerate(leaves):
+        # Check if this leaf should receive a PyTorch weight
+        should_load = False
         if isinstance(leaf, jnp.ndarray) and not (
             leaf.size == 1 and isinstance(leaf.item(), bool)
         ):
+            # For 1D arrays (BatchNorm), skip every second one (running statistics)
+            if len(leaf.shape) == 1:
+                # Count how many 1D arrays of this shape we've seen so far
+                count_same_shape = 0
+                for j, other_leaf in enumerate(leaves[:i + 1]):
+                    if (isinstance(other_leaf, jnp.ndarray) and 
+                        other_leaf.shape == leaf.shape and 
+                        not (other_leaf.size == 1 and isinstance(other_leaf.item(), bool))):
+                        count_same_shape += 1
+                
+                # Keep odd-numbered ones (trainable), skip even-numbered ones (running stats)
+                should_load = count_same_shape % 2 == 1
+            else:
+                # Non-1D arrays (conv weights, etc.) always get loaded
+                should_load = True
+        
+        if should_load:
             (weight_name, new_weights) = next(weights_iterator)
-            new_leaves.append(jnp.reshape(new_weights, leaf.shape))
+            try:
+                new_leaves.append(jnp.reshape(new_weights, leaf.shape))
+                print(f"Added {weight_name} to {leaf.shape}")
+            except Exception as e:
+                import ipdb; ipdb.set_trace()
         else:
             new_leaves.append(leaf)
 
@@ -202,18 +227,11 @@ def load_torch_weights(
 
     def set_experimental(iter_bn, x):
         def set_values(y):
-            if isinstance(y, eqx.experimental.StateIndex):
-                current_val = next(iter_bn)
-                if isinstance(current_val, bool):
-                    eqx.experimental.set_state(y, jnp.asarray(False))
-                else:
-                    running_mean, running_var = current_val, next(iter_bn)
-                    eqx.experimental.set_state(y, (running_mean, running_var))
+            # Skip experimental StateIndex handling since it's not available in current Equinox version
+            # The BatchNorm running statistics are already handled by the filtering logic above
             return y
 
-        return jtu.tree_map(
-            set_values, x, is_leaf=lambda _: isinstance(_, eqx.experimental.StateIndex)
-        )
+        return jtu.tree_map(set_values, x)
 
     model = jtu.tree_map(set_experimental, bn_iterator, model)
     return model

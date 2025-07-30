@@ -1,7 +1,6 @@
 from typing import Any, Callable, List, Optional, Sequence, Type, Union
 
 import equinox as eqx
-import equinox.experimental as eqex
 import equinox.nn as nn
 import jax
 import jax.nn as jnn
@@ -9,7 +8,7 @@ import jax.numpy as jnp
 import jax.random as jrandom
 from jaxtyping import Array
 
-from ...utils import load_torch_weights
+from ...flexible_weight_loader import flexible_load_torch_weights
 
 
 def _conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1, key=None):
@@ -58,7 +57,7 @@ class _ResNetBasicBlock(eqx.Module):
     ):
         super(_ResNetBasicBlock, self).__init__()
         if norm_layer is None:
-            norm_layer = eqex.BatchNorm
+            norm_layer = eqx.nn.BatchNorm
         if groups != 1 or base_width != 64:
             raise ValueError("BasicBlock only supports groups=1 and base_width=64")
         if dilation > 1:
@@ -123,7 +122,7 @@ class _ResNetBottleneck(eqx.Module):
     ):
         super(_ResNetBottleneck, self).__init__()
         if norm_layer is None:
-            norm_layer = eqex.BatchNorm
+            norm_layer = eqx.nn.BatchNorm
         self.expansion = 4
         keys = jrandom.split(key, 3)
         width = int(planes * (base_width / 64.0)) * groups
@@ -211,17 +210,17 @@ class ResNet(eqx.Module):
 
         ??? Failure "Exceptions:"
 
-            - `NotImplementedError`: If a `norm_layer` other than `equinox.experimental.BatchNorm` is used
+            - `NotImplementedError`: If a `norm_layer` other than `equinox.nn.BatchNorm` is used
             - `ValueError`: If `replace_stride_with_convolution` is not `None` or a `3-tuple`
 
         """
         super(ResNet, self).__init__()
         if not norm_layer:
-            norm_layer = eqex.BatchNorm
+            norm_layer = eqx.nn.BatchNorm
 
-        if eqex.BatchNorm != norm_layer:
+        if eqx.nn.BatchNorm != norm_layer:
             raise NotImplementedError(
-                f"{type(norm_layer)} is not currently supported. Use `eqx.experimental.BatchNorm` instead."
+                f"{type(norm_layer)} is not currently supported. Use `eqx.nn.BatchNorm` instead."
             )
         if key is None:
             key = jrandom.PRNGKey(0)
@@ -373,7 +372,7 @@ def resnet18(torch_weights=None, **kwargs) -> ResNet:
     """
     model = _resnet(_ResNetBasicBlock, [2, 2, 2, 2], **kwargs)
     if torch_weights:
-        model = load_torch_weights(model, torch_weights=torch_weights)
+        model = flexible_load_torch_weights(model, torch_weights=torch_weights)
     return model
 
 
@@ -388,7 +387,7 @@ def resnet34(torch_weights=None, **kwargs) -> ResNet:
     """
     model = _resnet(_ResNetBasicBlock, [3, 4, 6, 3], **kwargs)
     if torch_weights:
-        model = load_torch_weights(model, torch_weights=torch_weights)
+        model = flexible_load_torch_weights(model, torch_weights=torch_weights)
     return model
 
 
@@ -403,7 +402,7 @@ def resnet50(torch_weights=None, **kwargs) -> ResNet:
     """
     model = _resnet(_ResNetBottleneck, [3, 4, 6, 3], **kwargs)
     if torch_weights:
-        model = load_torch_weights(model, torch_weights=torch_weights)
+        model = flexible_load_torch_weights(model, torch_weights=torch_weights)
     return model
 
 
@@ -418,7 +417,7 @@ def resnet101(torch_weights=None, **kwargs) -> ResNet:
     """
     model = _resnet(_ResNetBottleneck, [3, 4, 23, 3], **kwargs)
     if torch_weights:
-        model = load_torch_weights(model, torch_weights=torch_weights)
+        model = flexible_load_torch_weights(model, torch_weights=torch_weights)
     return model
 
 
@@ -433,7 +432,7 @@ def resnet152(torch_weights=None, **kwargs) -> ResNet:
     """
     model = _resnet(_ResNetBottleneck, [3, 8, 36, 3], **kwargs)
     if torch_weights:
-        model = load_torch_weights(model, torch_weights=torch_weights)
+        model = flexible_load_torch_weights(model, torch_weights=torch_weights)
     return model
 
 
@@ -450,7 +449,7 @@ def resnext50_32x4d(torch_weights=None, **kwargs) -> ResNet:
     kwargs["width_per_group"] = 4
     model = _resnet(_ResNetBottleneck, [3, 4, 6, 3], **kwargs)
     if torch_weights:
-        model = load_torch_weights(model, torch_weights=torch_weights)
+        model = flexible_load_torch_weights(model, torch_weights=torch_weights)
     return model
 
 
@@ -467,7 +466,7 @@ def resnext101_32x8d(torch_weights=None, **kwargs) -> ResNet:
     kwargs["width_per_group"] = 8
     model = _resnet(_ResNetBottleneck, [3, 4, 23, 3], **kwargs)
     if torch_weights:
-        model = load_torch_weights(model, torch_weights=torch_weights)
+        model = flexible_load_torch_weights(model, torch_weights=torch_weights)
     return model
 
 
@@ -487,7 +486,7 @@ def wide_resnet50_2(torch_weights=None, **kwargs) -> ResNet:
     kwargs["width_per_group"] = 64 * 2
     model = _resnet(_ResNetBottleneck, [3, 4, 6, 3], **kwargs)
     if torch_weights:
-        model = load_torch_weights(model, torch_weights=torch_weights)
+        model = flexible_load_torch_weights(model, torch_weights=torch_weights)
     return model
 
 
@@ -507,5 +506,5 @@ def wide_resnet101_2(torch_weights=None, **kwargs) -> ResNet:
     kwargs["width_per_group"] = 64 * 2
     model = _resnet(_ResNetBottleneck, [3, 4, 23, 3], **kwargs)
     if torch_weights:
-        model = load_torch_weights(model, torch_weights=torch_weights)
+        model = flexible_load_torch_weights(model, torch_weights=torch_weights)
     return model

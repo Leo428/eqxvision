@@ -1,7 +1,6 @@
 from typing import Any, Optional, Sequence, Tuple, Union
 
 import equinox as eqx
-import equinox.experimental as eqxex
 import equinox.nn as nn
 import jax
 import jax.nn as jnn
@@ -13,10 +12,10 @@ from ...utils import load_torch_weights
 
 
 class _DenseLayer(eqx.Module):
-    norm1: eqxex.BatchNorm
+    norm1: eqx.nn.BatchNorm
     relu: nn.Lambda
     conv1: nn.Conv2d
-    norm2: eqxex.BatchNorm
+    norm2: eqx.nn.BatchNorm
     conv2: nn.Conv2d
     dropout: nn.Dropout
 
@@ -30,7 +29,7 @@ class _DenseLayer(eqx.Module):
     ) -> None:
         super().__init__()
         keys = jrandom.split(key, 2)
-        self.norm1 = eqxex.BatchNorm(num_input_features, axis_name="batch")
+        self.norm1 = eqx.nn.BatchNorm(num_input_features, axis_name="batch")
         self.relu = nn.Lambda(jnn.relu)
         self.conv1 = nn.Conv2d(
             num_input_features,
@@ -40,7 +39,7 @@ class _DenseLayer(eqx.Module):
             use_bias=False,
             key=keys[0],
         )
-        self.norm2 = eqxex.BatchNorm(bn_size * growth_rate, axis_name="batch")
+        self.norm2 = eqx.nn.BatchNorm(bn_size * growth_rate, axis_name="batch")
         self.conv2 = nn.Conv2d(
             bn_size * growth_rate,
             growth_rate,
@@ -115,7 +114,7 @@ class _Transition(eqx.Module):
         super().__init__()
         self.layers = nn.Sequential(
             [
-                eqxex.BatchNorm(num_input_features, axis_name="batch"),
+                eqx.nn.BatchNorm(num_input_features, axis_name="batch"),
                 nn.Lambda(jnn.relu),
                 nn.Conv2d(
                     num_input_features,
@@ -177,7 +176,7 @@ class DenseNet(eqx.Module):
                 use_bias=False,
                 key=keys[0],
             ),
-            eqxex.BatchNorm(num_init_features, axis_name="batch"),
+            eqx.nn.BatchNorm(num_init_features, axis_name="batch"),
             nn.Lambda(jnn.relu),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
         ]
@@ -208,7 +207,7 @@ class DenseNet(eqx.Module):
         # Final batch norm, relu and pooling
         features.extend(
             [
-                eqxex.BatchNorm(num_features, axis_name="batch"),
+                eqx.nn.BatchNorm(num_features, axis_name="batch"),
                 nn.Lambda(jnn.relu),
                 nn.AdaptiveAvgPool2d((1, 1)),
             ]
